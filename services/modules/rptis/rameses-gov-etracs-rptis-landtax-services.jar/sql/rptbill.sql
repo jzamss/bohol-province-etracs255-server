@@ -158,12 +158,13 @@ from (
     union 
 
     select 
-        rc.refdate as receiptdate, 
-        case when $P{cy} = rc.fromyear then rc.fromqtr else 1 end as fromqtr,
-        case when $P{cy} = rc.toyear then rc.toqtr else 4 end as toqtr
-    from rptledger_credit rc
-    where rc.rptledgerid = $P{objid}
-    and $P{cy} >= rc.fromyear and $P{cy} <= rc.toyear 
+        rp.receiptdate, 
+        case when $P{cy} = rp.fromyear then rp.fromqtr else 1 end as fromqtr,
+        case when $P{cy} = rp.toyear then rp.toqtr else 4 end as toqtr
+    from rptpayment rp
+    where rp.refid = $P{objid}
+    and $P{cy} >= rp.fromyear and $P{cy} <= rp.toyear 
+    and type = 'capture'
 )x 
 order by x.fromqtr 
 

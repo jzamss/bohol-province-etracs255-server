@@ -41,6 +41,9 @@
 		<field name="originlguid" />
 		<field name="trackingno" />
 		<field name="fullpin" expr="displaypin" />
+		<complex name="taxpayer" ref="entity" jointype="many-to-one" 
+			required="false" includefields="entityno">
+			<key field="taxpayer_objid" target="objid" /> 
+		</complex>
 	</element>
 </schema>
-

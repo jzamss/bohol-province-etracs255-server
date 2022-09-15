@@ -128,10 +128,24 @@ class ConsolidationWorkflowInterceptor
 		def consolidation = evt.args[0].data
 		consolidation = consolidationSvc.open(consolidation)
 
-		//check existing assessment 
 		def assessment = em_rpu_assessment.find([rpuid:consolidation.newrpuid]).first()
 		if (!assessment) throw new Exception('Consolidated FAAS is not yet appraised.')
+
+		validateArea(consolidation);
+
 	}
+
+	void validateArea(consolidation){
+        if (util.isTrue(var.consolidation_allow_equal_area_only)) {
+            def consolidatedLands = em.getConsolidatedLands([consolidationid: consolidation.objid])
+            def consolidatedFaasArea = consolidation.rpu.totalareasqm
+            def consolidatedLandsArea = consolidatedLands ? consolidatedLands.sum{ it.rpu.totalareasqm } : 0
+
+            if (consolidatedFaasArea != consolidatedLandsArea){
+                throw new Exception("Consolidated FAAS Area must be equal to ${consolidatedLandsArea} sq.m. or ${consolidatedLandsArea / 10000.0} ha.")
+            }
+        }
+    }    
 
 
 }

@@ -7,7 +7,6 @@ class LandTaxReportTopNRealPropertyTaxpayerService
     @ActiveDB('landtaxreport_topn_realty_taxpayer')
     def em
 
-
     @Service('DateService')
     def dtSvc 
 
@@ -20,18 +19,21 @@ class LandTaxReportTopNRealPropertyTaxpayerService
 	public def buildReport(params){
 		params._limit = params.topn 
 		params.type = '%'
-		params.startdate = params.year + '-01-01';
-		params.enddate = (params.year+1) + '-01-01';
-
-		if (params.rputype) 
+		
+		if (params.rputype) {
 			params.type = params.rputype
+		}
 
 		def list = []
 		em.getTopNPayments(params).each{
-			params._limit = 50
-			params.amount = it.amount 
-			list += em.getTopNTaxpayerPayments(params)
+			list += em.getTopNTaxpayerPayments([
+				year: params.year, 
+				amount: it.amount,
+				type: params.type,
+			])
 		}
+
+		if (!list) throw new Exception('There are no records found.');
 
 		int rank = 0
 		def prevamt = 0.0
@@ -48,6 +50,10 @@ class LandTaxReportTopNRealPropertyTaxpayerService
 
 			item.rank = rank;
 		}
+
+		def firstitem = em.findFirstItem(params)
+		list[0].dtgenerated = firstitem.dtgenerated
+
 		def p = [:]
 		p.TOPN = params.topn 
 		p.YEAR = params.year 
@@ -55,5 +61,19 @@ class LandTaxReportTopNRealPropertyTaxpayerService
 		if (params.rputype) p.TITLE += ' (' + params.rputype.toUpperCase() + ')'
 		return [reportdata:list, parameters:p]; 
 	}
+
+    @ProxyMethod
+    public void buildSummary(params) {
+        if (!params.year) throw new Exception('year must be specified');
+        params.fromdate = params.year + '-01-01'
+        params.todate = (params.year+1) + '-01-01'
+        params.dtgenerated = dtSvc.serverDate
+
+        println 'buildSummary: deleteSummaries...'
+        em.deleteSummaries(params)
+        println 'buildSummary: insertSummaries...'
+        em.insertSummaries(params)
+        println 'buildSummary: done'
+    }
 
 }

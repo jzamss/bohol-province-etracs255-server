@@ -18,6 +18,7 @@ SELECT
 	rp.barangayid,
 	rp.lgutype,
 	rp.stewardshipno,
+	rp.portionof,
 	r.rputype,
 	r.ry,
 	r.suffix,
@@ -225,7 +226,7 @@ WHERE f.objid = $P{faasid}
 
 
 [getBldgAssessments]
-SELECT 
+SELECT DISTINCT
 	'BLDG' as propertytype, 
 	dc.code AS dominantclasscode,
 	dc.name AS dominantclassification,
@@ -281,6 +282,7 @@ SELECT
 	r.assessedvalue AS assessedvalue,
 	r.areasqm AS areasqm,
 	r.areaha AS areaha ,
+	r.taxable,
 	xr.rputype
 FROM faas f
 	INNER JOIN rpu_assessment r ON f.rpuid = r.rpuid
@@ -309,7 +311,8 @@ SELECT
 	md.operationyear,
 	md.replacementcost,
 	md.brand,
-	md.model
+	md.model,
+	mu.taxable
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -335,7 +338,8 @@ SELECT
 	bra.assessedvalue,
 	r.totalareasqm AS area,
 	'SQM' AS areatype,
-	r.rputype
+	r.rputype,
+	bra.taxable
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -369,7 +373,8 @@ SELECT
 	bra.assessedvalue,
 	r.totalareasqm AS area,
 	'SQM' AS areatype,
-	r.rputype
+	r.rputype,
+	bra.taxable
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -381,6 +386,7 @@ WHERE f.objid = $P{faasid}
 select
 	f.tdno, f.owner_name, 
 	rp.cadastrallotno, 
+	rp.blockno,
 	r.totalareasqm, r.totalareaha
  from rpu r
 	inner join faas f on r.objid = f.rpuid  
@@ -401,7 +407,7 @@ select
 		where f.objid = $P{faasid}
 	) x 
 where r.objid = x.landrpuid 
-  and f.state <> 'CANCELLED' 
+order by f.dtapproved desc
 
 
 

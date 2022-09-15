@@ -9,6 +9,9 @@ public class RPTSmsService extends ActiveCrudListService
 	@ActiveDB("rpt_sms")
 	def em;
 
+    @DataContext('sys_org')
+    def em_org;
+
 	
 	@Service('SMSService')
 	def smsSvc;	
@@ -25,6 +28,9 @@ public class RPTSmsService extends ActiveCrudListService
 
 	@Service('RPTBillingReportService')
 	def billReportSvc
+
+	@Service('ReportParameterService')
+	def paramSvc
 
 	
 	def SMS_COST = 2.0
@@ -43,22 +49,11 @@ public class RPTSmsService extends ActiveCrudListService
 
 	@ProxyMethod
 	public def send( msg ) {
-		def smsreply = smsSvc.send(msg)	
-
-		def sms = [objid:'SR' + new java.rmi.server.UID()];
-		sms.logdate = dtSvc.serverDate;
-		sms.traceid = smsreply.traceid;
-		sms.message = msg.message;
-		sms.phoneno = msg.phoneno;
-		sms.action = msg.keyword;
-		sms.amount = SMS_COST * (smsreply.creditcount == null ? 1 : smsreply.creditcount);
-		sms.amtpaid = 0.0;
-		sms.status = msg.retcode 
-		em.create(sms);
-		return smsreply;
+		smsSvc.send(msg)	
 	}
 
 
+	@Async
 	@ProxyMethod
 	public void notifyClient(faas){
 		try{
@@ -69,35 +64,64 @@ public class RPTSmsService extends ActiveCrudListService
 
 			println 'Notifying Client for FAAS No. ' + faas.tdno  
 			def phones = em.getPhones([refid:faas.objid])	
-			if (!phones)	
-				phones = em.getClientPhones([objid:faas.taxpayer.objid])
-			phones.each{ phone ->
-				println 'Phone -> ' + phone.phoneno 
-				String msg = ''
-				msg += 'This is to inform you that your property FAAS No. ' + faas.tdno 
-				msg += '  classified as ' + faas.classname 
-				if (faas.classname.toLowerCase().matches('.*agricultural.*'))
-					msg += '  with an area of ' + numSvc.format('#,##0.0000', faas.totalareaha) + ' ha. '
-				else 
-					msg += '  with an area of ' + numSvc.format('#,##0.00', faas.totalareasqm) + ' sq.m. '
-				msg += ' has already been approved. '
+			if (!phones) {
+                phones = em.getClientPhones([objid:faas.taxpayer.objid])
+            };	
+            if (!phones) return;
 
-				def smstext = [
-					objid 		: 'SMS' + new java.rmi.server.UID(),
-					phoneno		: phone.phoneno,
-					refid 		: faas.objid,
-					message		: msg,
-					keyword 	: 'NOTIFY',
-					retcode 	: 'OK',
-				]
-				send(smstext)
-			}
+            def office = getOffice()
+            
+            phones.each{ phone ->
+                String msg = 'Greetings!\n\n'
+                msg += 'This is to inform you that your property TD No. ' + faas.tdno 
+                msg += '  classified as ' + faas.classname 
+                if (faas.classname.toLowerCase().matches('.*agricultural.*'))
+                    msg += '  with an area of ' + numSvc.format('#,##0.0000', faas.totalareaha) + ' ha. '
+                else 
+                    msg += '  with an area of ' + numSvc.format('#,##0.00', faas.totalareasqm) + ' sq.m. '
+                msg += ' has already been approved. '
+
+                msg += '\n\n' + office.name
+                msg += '\n' + office.lgu
+                msg += '\n\nThis is a system generated message. Pls do not reply.' 
+                
+
+                def smstext = [
+                    objid 		: 'SMS' + new java.rmi.server.UID(),
+                    phoneno		: phone.phoneno,
+                    refid 		: faas.objid,
+                    message		: msg,
+                    keyword 	: 'NOTIFY',
+                    retcode 	: 'OK',
+                ]
+                send(smstext)
+            }
 		}
 		catch(e){
 			e.printStackTrace();
 		}
 		
 	}
+
+    def getOffice() {
+        def orgclasses = [
+            CITY: 'CITY',
+            PROVINCE: 'PROVINCIAL',
+            MUNICIPALITY: 'MUNICIPAL',
+        ]
+        def params = paramSvc.getStandardParameter();
+				def org = em_org.find([root: 1]).first();
+				def lgu = params.LGUFORMALNAME;
+				if (!lgu) lgu = org.name;
+				if (lgu.indexOf(org.orgclass) < 0) {
+					lgu = orgclasses[org.orgclass] + ' OF ' + lgu;
+				}
+
+				return [
+            name: orgclasses[org.orgclass] + " ASSESSOR'S OFFICE",
+            lgu: lgu,
+        ]
+    }
 
 	@ProxyMethod
 	public def enrollFaas( info ) {

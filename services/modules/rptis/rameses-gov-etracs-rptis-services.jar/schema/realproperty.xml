@@ -23,6 +23,7 @@
 		<field name="lguid" />
 		<field name="previd" />
 		<field name="stewardshipno" />
+		<field name="portionof" />
 		<complex name="barangay" ref="barangay" 
 			jointype="many-to-one" required="true" includefields="objid,state,indexno,pin,name">
 			<key field="barangayid" target="objid" />

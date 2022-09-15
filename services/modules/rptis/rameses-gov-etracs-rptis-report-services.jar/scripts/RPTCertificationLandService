@@ -45,10 +45,16 @@ class RPTCertificationLandService
 		return cert 
 	}
 
+	@ProxyMethod
+	public def createLandWithNoImprovementPortion(cert) {
+        validateSoldArea(cert)
+        return createLandWithNoImprovement(cert)
+    }
+
 
     @ProxyMethod
 	public def createLandWithImprovement( cert ) {
-		certSvc.createCertification(cert)
+		cert = certSvc.createCertification(cert)
 		certSvc.buildFilter(cert)
 		em.insertLandImprovements(cert)
 		em.insertLandImprovementFromBldgLand(cert)
@@ -72,7 +78,9 @@ class RPTCertificationLandService
 		def faas = certSvc.getFaasInfo(cert.faasid)
 		if (faas) {
 			faas.street = (faas.street ? faas.street : faas.barangay.name)
+			def certid = cert.objid 
 			cert.putAll( faas )
+			cert.objid = certid
 			if (!cert.items)
 				cert.items = []
 		}
@@ -129,4 +137,22 @@ class RPTCertificationLandService
 			it.street = (it.street ? it.street : it.barangay)
 		}
 	}
+
+    void validateSoldArea(cert) {
+		def faas = certSvc.getFaasInfo(cert.faasid) 
+        if (!faas) throw new Exception('FAAS does not exist or has already been deleted')
+        def areatype = cert.properties.areatype.code
+        def areasold = cert.properties.areasold
+
+        if ( areatype == 'sqm' && areasold >= faas.totalareasqm) 
+            throw new Exception('Area sold should be less than ' + areaToString(faas.totalareasqm, areatype))
+        
+        if ( areatype != 'sqm' && areasold >= faas.totalareaha) 
+            throw new Exception('Area sold should be less than ' + areaToString(faas.totalareaha, areatype))
+    }
+
+    def areaToString(area, areatype) {
+        def format = areatype == 'sqm' ? '#,##0.00' : '#,##0.0000'
+        return new java.text.DecimalFormat(format).format(area) + " " + areatype + "."
+    }
 }

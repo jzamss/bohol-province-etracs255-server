@@ -20,31 +20,56 @@ public class AddAssessmentInfo implements RuleActionHandler {
 
 		def rputype = 'misc';
 
-		if (entity.assessments == null) 
+		if (entity.assessments == null) {
 			entity.assessments = []
+		}
+
+        def classificationid = entity.classification?.objid
+        def actualuseid = entity.actualuse?.objid
+        def actualusecode = entity.actualuse?.code
+
+        entity.items.each{item ->
+            def a = request.assessments.find {
+                it.classificationid == classificationid && it.actualuseid == actualuseid && it.taxable == item.taxable
+            }
+
+            if ( ! a){
+                def assessmentinfo = [
+                    objid  :  'MA' + new java.rmi.server.UID(),
+                    rpuid  : entity.objid, 
+                    rputype : rputype,
+                    classificationid : classificationid,
+                    classification   : entity.classification,
+                    actualuseid  : actualuseid,
+                    actualusecode  : actualusecode,
+                    actualuse    : entity.actualuse,
+                    areasqm      : 0, 
+                    areaha       : 0,
+                    marketvalue  : item.marketvalue,
+                    exemptedmarketvalue : (item.taxable == false ? item.marketvalue : 0.0),
+                    taxable 		: item.taxable, 
+                    assesslevel  : item.assesslevel,
+                    assessedvalue  : item.assessedvalue,
+                ]
+                
+                a = new RPUAssessment(assessmentinfo)
+                a.assesslevel = item.assesslevel
+                a.assessedvalue = item.assessedvalue
+                entity.assessments << assessmentinfo
+                request.assessments << a
+                request.facts << a 
+                drools.insert(a)
+            }
+            else {
+                a.marketvalue = NS.round(a.marketvalue + item.marketvalue)
+                if (item.taxable == false) {
+                    a.exemptedmarketvalue = NS.round(a.exemptedmarketvalue + item.marketvalue)
+                }
+                a.assessedvalue = NS.round(a.assessedvalue + item.assessedvalue)
+                drools.update(a)
+            }
+        }
 		
-		def assessment = [
-			objid  :  'BA' + new java.rmi.server.UID(),
-			rpuid  : entity.objid, 
-			rputype : rputype,
-			classificationid : miscrpu.classificationid,
-			classification   : entity.classification,
-			actualuseid  : miscrpu.actualuseid,
-			actualuse    : entity.actualuse,
-			areasqm      : 0.0, 
-			areaha       : 0.0,
-			marketvalue  : miscrpu.marketvalue,
-			assesslevel  : miscrpu.assesslevel,
-			assessedvalue  : miscrpu.assessedvalue,
-			taxable 		: true, 
-		]
-		
-		def a = new RPUAssessment(assessment)
-		a.assesslevel = miscrpu.assesslevel
-		a.assessedvalue = miscrpu.assessedvalue
-		entity.assessments << assessment
-		request.assessments << a
-		request.facts << a 
-		drools.insert(a)
 	}
+
 }

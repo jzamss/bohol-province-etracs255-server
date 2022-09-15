@@ -21,7 +21,10 @@ class RPTAssessmentNoticeService
 	def seqSvc
 
 	@Service('SignatureService')
-	def sigSvc 	
+	def sigSvc
+
+	@Service('RPTBillingService')
+	def billingSvc
 
 
 	@Service('RPTUtil')
@@ -85,7 +88,11 @@ class RPTAssessmentNoticeService
 		notice.approvedbytitle = reportSvc.standardParameter.ASSESSORTITLE
 		if (!notice.approvedbyname) notice.approvedbyname = 'SYSTEM'
 		if (!notice.approvedbytitle) notice.approvedbytitle = 'SYSTEM'
-
+		if (!notice.info) notice.info = [:]
+		notice.info.treasurer = [
+			name: reportSvc.getStandardParameter().TREASURERNAME,
+			title: reportSvc.getStandardParameter().TREASURERTITLE,
+		]
 		em.create(notice) 
 
 		notice.items.each{
@@ -100,7 +107,12 @@ class RPTAssessmentNoticeService
 	public def getReportData(param) {
 		def entity = em.read(param)
 		if (!entity) throw new Exception('Assessment does not exist or has been deleted.')
-		return open(entity)
+		
+		entity = open(entity)
+		if ('STANDARD'.equalsIgnoreCase(param.reporttype)) {
+			return entity
+		}
+		return generateAndUpdateNatbInfo(entity);
 	}
 
 
@@ -108,6 +120,7 @@ class RPTAssessmentNoticeService
 	public def open(entity) {
 		entity.items = getItems(entity)
 		updateNoticeInfo(entity)
+		entity.info = entity.info ? em.serializer.read(entity.info) : [:]
 		return entity 
 	}
 
@@ -184,6 +197,7 @@ class RPTAssessmentNoticeService
 	def getItems(entity){
 		def items = em.getItems(entity)
 		items.each{faas ->
+			if (faas.info) faas.info = em_item.serializer.read(faas.info)
 			buildFaasAdditionalInfo(faas)
 		}
 		return items
@@ -258,5 +272,30 @@ class RPTAssessmentNoticeService
 
         return item
     }
+
+
+		def generateAndUpdateNatbInfo(entity) {
+			entity.items.each {
+				if (!it.info) {
+					try {
+						def bill = billingSvc.generateBillByTdNo([
+							tdno: it.tdno, 
+							billtoyear: entity.assessmentyear,
+							billtoqtr: 4
+						])
+
+						def ledger = bill.ledgers[0]
+						def items = ledger.items.findAll{ it.year == entity.assessmentyear}
+						if (!it.info) it.info = [:]
+						it.info.basictax = items.basic.sum();
+						it.info.seftax = items.sef.sum();
+						em_item.find([objid: it.objid]).update([info: it.info]);
+					} catch(ignore) {
+						//fullpayment
+					}
+				} 
+			}
+			return entity;
+		}
 
 }

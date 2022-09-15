@@ -137,26 +137,26 @@ WHERE car.landfaasid = $P{landfaasid}
 
 [getAffectedRpusByConsolidatedLand]
 SELECT 
-	f.objid AS objid,
-	f.state, 
-	$P{consolidationid} AS consolidationid,
-	f.objid AS prevfaasid,
-	r.objid AS prevrpuid, 
+	fi.objid AS objid,
+	fi.state, 
+  $P{consolidationid} AS consolidationid,
+	fi.objid AS prevfaasid,
+	fi.rpuid AS prevrpuid, 
 	r.suffix AS newsuffix,
-	r.rputype,
+	fi.rputype,
 	fl.objid AS landfaasid,
 	ledger.state AS ledgerstate
-FROM faas f
-	INNER JOIN rpu r ON f.rpuid = r.objid 
-	INNER JOIN rpu rl ON r.realpropertyid = rl.realpropertyid
-	INNER JOIN faas fl ON rl.objid = fl.rpuid 	
-	LEFT JOIN rptledger ledger ON f.objid = ledger.faasid 
-WHERE r.realpropertyid = $P{realpropertyid}
-  AND r.rputype <> 'land' 
-  AND rl.rputype = 'land'
-  AND f.state <> 'CANCELLED' 
+FROM faas_list fi
+	INNER JOIN rpu r on fi.rpuid = r.objid 
+	INNER JOIN faas_list fl on fi.realpropertyid = fl.realpropertyid 
+	LEFT JOIN rptledger ledger ON fi.objid = ledger.faasid 
+WHERE fi.realpropertyid = $P{realpropertyid}
+  AND fi.rputype <> 'land' 
+  AND fl.rputype = 'land'
+  AND fi.state <> 'CANCELLED' 
   AND fl.state = 'CURRENT'
-  AND NOT EXISTS(SELECT * FROM consolidationaffectedrpu WHERE prevfaasid = f.objid )
+  AND NOT EXISTS(SELECT * FROM consolidationaffectedrpu WHERE prevfaasid = fi.objid )
+
 
 
 

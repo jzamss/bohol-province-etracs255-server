@@ -34,6 +34,9 @@ class RPTUtil
     @DataContext('org')
     def em_org 
 
+    @ActiveDB(value='userrole')
+    def em_userrole;
+
 
     @ProxyMethod
     public def sum( list, field  ) {
@@ -687,13 +690,12 @@ class RPTUtil
         if (entity.claimno){
             newpin += '-' + entity.claimno
         }
-        
         entity.pin= newpin;
         entity.fullpin = newpin;
 
     }
 
-    void validSuffix(entity) {
+    def validSuffix(entity) {
         def valid = false
         if (entity.rputype == 'bldg' && entity.suffix >= 1001 && entity.suffix <= 1999) 
             valid = true
@@ -705,6 +707,7 @@ class RPTUtil
             valid = true
         if (!valid)
             throw new Exception('Invalid Suffix.')
+        return valid
     }
 
     int getParcelLength(parcellen, pintype){
@@ -846,5 +849,27 @@ class RPTUtil
         return partitions    
     }
     
+    
+	@ProxyMethod
+	public def checkUserAllowedAction(param) {
+        if(!param.action) throw new Exception("action is required");
+		def tokens = param.action.split("\\.");
+		def mu = [:];
+		mu.userid = param.userid ? param.userid : env.USERID;
+        mu.object = tokens[0];
+		mu.action = tokens[1];
+
+		def zu = em_userrole.findPermissionExist(mu);
+        if (!zu) return false;
+
+        if( zu.roleexclude ) {
+            if( param.action.matches(zu.roleexclude ) ) return false;
+        }
+        if( zu.securitygroupexclude ) {
+            if( param.action.matches(zu.securitygroupexclude ) ) return false;
+        }
+
+        return true;
+	}
 
 }

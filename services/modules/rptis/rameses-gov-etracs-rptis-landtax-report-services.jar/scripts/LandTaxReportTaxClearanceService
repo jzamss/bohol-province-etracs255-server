@@ -37,6 +37,9 @@ class LandTaxReportTaxClearanceService
     @DataContext("rptcertification_online")
     def em_cert_online
 
+    @DataContext("rptcompromise")
+    def em_compromise
+
 
     @ProxyMethod
     public def getReportTypes() {
@@ -154,6 +157,8 @@ class LandTaxReportTaxClearanceService
         if (!cert.items) {
             throw new Exception('At least one property must be included.')
         }
+
+        validateUnderCompromiseItems(cert.items);
 
         def isSpecialCase = util.toBoolean(var.landtax_taxclearance_allow_special_case_ledger, false)
 
@@ -287,6 +292,20 @@ class LandTaxReportTaxClearanceService
         data.orno = clearance.orno
         def b64Str = (new com.rameses.util.Base64Cipher()).encode(data);
         return "qrcode:" + b64Str
+    }
+
+    void validateUnderCompromiseItems(ledgers) {
+        ledgers.each {
+            def compromise = em_compromise.select('txnno')
+                .find([rptledgerid: it.objid, state: 'APPROVED'])
+                .first()
+                
+            if (compromise) {
+                def msg = 'Cannot issue Tax Clearance on Ledger ' + it.tdno + '.\n'
+                msg += 'The ledger is currently under Compromise No. ' + compromise.txnno + '.'
+                throw new Exception(msg)
+            }
+        }
     }
 
     /*===================================

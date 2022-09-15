@@ -25,9 +25,33 @@ class RPTReportTMCRService
     	return info.ry 
     }
 
-	@Async
+    @Async
     @ProxyMethod
-	public def generateTMCRDetailed( params ) {
+	public def getReportData( params )  {
+        if ('STANDARD'.equalsIgnoreCase(params.format.id)) {
+            return generateTMCR(params)
+        }
+        if ('MODIFIED'.equalsIgnoreCase(params.format.id)) {
+            return generateTMCR(params)
+        }
+        if ('SIMPLIFIED'.equalsIgnoreCase(params.format.id)) {
+            return generateTMCRSimplified(params)
+        }
+        return generateTMCRDetailed(params)
+    }
+
+	def generateTMCRSimplified( params )  {
+		def list;
+		buildTxnTypeFilterAndTitle(params)
+		params.barangayid = params.barangay?.objid
+		buildRpuTypeFilter(params)
+
+		list = em.getTmcrSimplified(params);
+		if( ! list ) throw new Exception('Records not found.')
+		return [reportdata:list, parameters:[TITLE:params.title]]
+	}
+
+	def generateTMCRDetailed( params ) {
 		def list = []
 		params.barangayid = params.barangay?.objid
 		params.tmcrfields = getTmcrFields()
@@ -49,7 +73,7 @@ class RPTReportTMCRService
 			list << [section:params.section, barangay:currentfaas.barangay]
 			list << [section:params.section, barangay:currentfaas.barangay]
 		}
-		return [reportdata:list]
+		return [reportdata:list, parameters:[:]]
 	}
 
 	void buildRpuTypeFilter(params){
@@ -99,30 +123,14 @@ class RPTReportTMCRService
 	}
 
 
-    @Async
-    @ProxyMethod
-	public def generateTMCR( params )  {
-		def list;
-		buildTxnTypeFilterAndTitle(params)
-		params.barangayid = params.barangay?.objid
-		buildRpuTypeFilter(params)
-
-		list = em.getTmcrList(params);
-		if( ! list ) throw new Exception('Records not found.')
-		return [reportdata:list, parameters:[TITLE:params.title]]
-	}
-
-
-	@Async
-	@ProxyMethod
-	public def generateTMCRModified( params ) {
+	def generateTMCR( params ) {
 		util.required('Barangay', params.barangay)
 		params.barangayid = params.barangay.objid
 
 		buildTxnTypeFilterAndTitle(params)
 		buildRpuTypeFilter(params)
 
-		def list = em.getTMCRModifiedData(params)
+		def list = em.getTMCRData(params)
 		if( ! list ) throw new Exception('Records not found.')
 
 		def tdno = list[0].tdno 
@@ -139,7 +147,7 @@ class RPTReportTMCRService
 			else 
 				it.area = numSvc.format('#,##0.000000', it.area)
 
-			it.tdno =  it.tdno.substring(tdno.lastIndexOf('-')+1)
+			it.tdnoseq =  it.tdno.substring(tdno.lastIndexOf('-')+1)
 
 			if (it.rputype == 'land'){
 				def bldg = em.findImprovementCount([objid:it.objid, rputype:'bldg'])
@@ -147,6 +155,9 @@ class RPTReportTMCRService
 
 				def mach = em.findImprovementCount([objid:it.objid, rputype:'mach'])
 				it.machcount = mach.count == 0 ? null : mach.count 
+
+				def misc = em.findImprovementCount([objid:it.objid, rputype:'misc'])
+				it.misccount = misc.count == 0 ? null : misc.count 
 			}
 			else {
 				it.parcel = it.suffix+''

@@ -230,6 +230,7 @@ class SubdivisionService
         em.deleteMotherLandAffectedRpus(motherland)
         em.delete(motherland, SCHEMA_MOTHER_LAND)
         updateMotherLandInfo([objid:motherland.subdivisionid])
+        txnRef.deleteByObjid(motherland.subdivisionid, motherland.landfaasid)
     }
 
 
@@ -359,23 +360,24 @@ class SubdivisionService
     public def saveAffectedRpuAndFaas( arpu ) {
         util.required('New PIN', arpu.newrpid)
         
-        if (arpu.newrpid ) {
-            def subdivision = em.findSubdivisionById([objid:arpu.subdivisionid])
-            def faas = null 
-            if (! arpu.newfaasid ){
-                faas = createFaasFromAffectedRpu(subdivision, arpu)
-                faas.previousfaases.each{it.faasid = faas.objid}
-                faasSvc.createFaas(faas)
-                arpu.newrpuid = faas.rpuid 
-                arpu.newfaasid = faas.objid 
-            }
-            else {
-                faas = faasSvc.openFaas([objid:arpu.newfaasid])
-                faas.rpu.suffix = arpu.newsuffix 
-                faas.rpu.fullpin = faas.rp.pin + '-' + arpu.newsuffix 
-                faasSvc.updateFaas(faas)
-            }
+        def subdivision = em.findSubdivisionById([objid:arpu.subdivisionid])
+        def faas = null 
+        if (! arpu.newfaasid ){
+            faas = createFaasFromAffectedRpu(subdivision, arpu)
+            faas.previousfaases.each{it.faasid = faas.objid}
+            faasSvc.createFaas(faas)
+            arpu.newrpuid = faas.rpuid 
+            arpu.newfaasid = faas.objid
+            faas.rpu.suffix = arpu.newsuffix 
+            faas.rpu.fullpin = faas.rp.pin + '-' + arpu.newsuffix  
         }
+        else {
+            faas = faasSvc.openFaas([objid:arpu.newfaasid])
+            faas.rpu.suffix = arpu.newsuffix 
+            faas.rpu.fullpin = faas.rp.pin + '-' + arpu.newsuffix 
+            faasSvc.updateFaas(faas)
+        }
+
         em.save(arpu, SCHEMA_AFFECTED_RPU)  
         return arpu 
     }    
@@ -741,6 +743,7 @@ class SubdivisionService
         faas.realpropertyid = arpu.newrpid 
         faas.originlguid = subdivision.originlguid
         faasSvc.clearSignatoryInfo(faas)
+        faas.rp = rpSvc.open([objid: arpu.newrpid])
         return faas 
     }    
 
@@ -990,7 +993,7 @@ class SubdivisionService
 
         def param  = [
             objid : land.assistant.objid,
-            section: land.rp.section,
+            section: land.rp.isection,
             parcel: land.rp.iparcel
         ]
         def assistItem = getAssistItem(param)

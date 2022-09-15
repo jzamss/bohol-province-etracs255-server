@@ -1,64 +1,70 @@
 [getTopNPayments]
 select distinct 
-    amount
+	x.amount
 from (
-    select 
-        case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_objid end as payer_objid, 
-        min(cro.year) as fromyear, 
-        max(cro.year) as toyear, 
-        sum(basic + basicint - basicdisc + 
-        sef + sefint - sefdisc + firecode +
-        basicidle + basicidleint - basicidledisc +
-        sh + shint - shdisc ) as amount 
-    from cashreceipt c
-        inner join cashreceipt_rpt cr on c.objid = cr.objid 
-        inner join rptpayment rp on cr.objid = rp.receiptid 
-        inner join vw_rptpayment_item_detail cro on rp.objid = cro.parentid
-        inner join rptledger rl on rp.refid = rl.objid 
-        inner join remittance rem on rem.objid = c.remittanceid 
-        inner join collectionvoucher l on l.objid = rem.collectionvoucherid 
-        left join cashreceipt_void cv on c.objid = cv.receiptid
-    where l.controldate >= $P{startdate} and l.controldate < $P{enddate}
-        and rl.rputype like $P{type}
-        and cv.objid is null 
-    group by case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_objid end
-)x
+	select 
+		payer_name,
+		sum(amount) as amount
+	from report_rptcollection_annual_bypayer
+	where year = $P{year}
+    and rputype like $P{type}
+	group by payer_name
+) x 
 order by x.amount desc 
-
 
 [getTopNTaxpayerPayments]
 select 
-    x.payer_objid,
-    x.payer_name, 
-    x.amount,
-    x.fromyear,
-    x.toyear
+    x.*
 from (
-    select 
-        case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_objid end as payer_objid,
-        case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_name end as payer_name,
-        min(cro.year) as fromyear, 
-        max(cro.year) as toyear, 
-        sum(basic + basicint - basicdisc + 
-        sef + sefint - sefdisc + firecode +
-        basicidle + basicidleint - basicidledisc) as amount 
-    from cashreceipt c
-        inner join cashreceipt_rpt cr on c.objid = cr.objid
-        inner join rptpayment rp on cr.objid = rp.receiptid 
-        inner join vw_rptpayment_item_detail cro on rp.objid = cro.parentid
-        inner join rptledger rl on rp.refid = rl.objid 
-        inner join remittance rem on rem.objid = c.remittanceid 
-        inner join collectionvoucher l on l.objid = rem.collectionvoucherid 
-        left join cashreceipt_void cv on c.objid = cv.receiptid
-    where l.controldate >= $P{startdate} and l.controldate < $P{enddate}
-        and rl.rputype like $P{type}
-        and cv.objid is null 
-    group by 
-        case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_objid end,
-        case when c.payer_objid is null or c.payer_name = 'UNKNOWN' then c.paidby else c.payer_name end
-)x
+	select 
+		payer_name,
+		sum(amount) as amount
+	from report_rptcollection_annual_bypayer
+	where year = $P{year}
+    and rputype like $P{type}
+	group by payer_name
+) x 
 where x.amount = $P{amount}
-order by x.payer_objid, x.payer_name
+order by x.payer_name
 
+
+[findFirstItem]
+select *
+from report_rptcollection_annual_bypayer
+where year = $P{year}
+	and rputype like $P{type}
+
+[deleteSummaries]	
+delete from report_rptcollection_annual_bypayer 
+where year = $P{year}
+
+[insertSummaries]
+insert into report_rptcollection_annual_bypayer(
+  rputype,
+	year, 
+	payer_name,
+	amount,
+  dtgenerated
+)
+select 
+  rl.rputype,
+		year(c.receiptdate), 
+		c.paidby as payer_name, 
+		sum(
+			basic + basicint - basicdisc + 
+			sef + sefint - sefdisc + firecode +
+			basicidle + basicidleint - basicidledisc +
+			sh + shint - shdisc
+		) as amount,
+    $P{dtgenerated} as dtgenerated
+from collectionvoucher cv
+	inner join remittance rem on cv.objid = rem.collectionvoucherid
+	inner join cashreceipt c on rem.objid = c.remittanceid 
+	left join cashreceipt_void crv on c.objid = crv.receiptid
+	inner join rptpayment rp on c.objid = rp.receiptid 
+	inner join rptledger rl on rp.refid = rl.objid 
+	inner join vw_rptpayment_item_detail rpi on rp.objid = rpi.parentid
+where cv.controldate >= $P{fromdate} and cv.controldate < $P{todate}
+group by rl.rputype, c.receiptdate,  c.paidby 
 
 

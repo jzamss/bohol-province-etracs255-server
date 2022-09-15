@@ -22,9 +22,7 @@ class LandTaxReportTopNDelinquentTaxpayerService
 		params._limit = params.topn 
 		def list = []
 		em.getTopNDelinquentAmounts(params).each{
-			params._limit = 50
-			params.amount = it.amount 
-			list += em.getTopNDelinquentTaxpayers(params)
+			list += em.getTopNDelinquentTaxpayers([amount: it.amount])
 		}
 
 		int rank = 0

@@ -69,6 +69,17 @@ order by rp.receiptdate
 [findRptar]    
 select 
     rl.fullpin,
+    rl.titleno,
+    rl.cadastrallotno,
+    rl.blockno,
+    rl.classcode,
+    rl.rputype,
+    rl.totalmv,
+    rl.totalav,
+    rl.totalareaha,
+    rl.totalareaha * 10000 as totalareasqm,
+    rl.administrator_name,
+    f.administrator_address,
     b.name as barangay,
     case when c.objid is not null then c.name else m.name end as lgu,
     p.name as province,

@@ -313,7 +313,9 @@ SELECT
 	rp.blockno,
 	rp.claimno,
 	b.name AS barangay_name,
-	pc.code AS classification_code
+	pc.objid as classification_objid,
+	pc.code AS classification_code,
+	rpu.rpumasterid
 FROM faas cf
 	INNER JOIN rpu rpu ON cf.rpuid = rpu.objid
 	INNER JOIN rpu prpu ON rpu.rpumasterid = prpu.rpumasterid
@@ -324,6 +326,17 @@ FROM faas cf
 WHERE cf.objid = $P{faasid}
   AND ISNULL(cf.tdno,'') <> f.tdno 
 ORDER BY f.tdno DESC 
+
+[getRpuHistories]
+select 
+	r.*, 
+	r.pin as fullpin,
+	pc.code as classification_code 
+from rpu_history r
+left join propertyclassification pc on r.classification_objid = pc.objid 
+where r.rpumaster_objid = $P{rpumasterid}
+order by r.ry desc, r.tdno desc 
+
 
 
 [getTxnTypes]
@@ -528,38 +541,70 @@ where f.objid = $P{objid}
   and pf.state  = 'CANCELLED'
 
 
+[getImprovementFaasesByLandRpuId]
+select f.objid as faasid, f.tdno, i.objid as rpuid
+from faas f
+	inner join bldgrpu i on f.rpuid = i.objid 
+where i.landrpuid = $P{landrpuid}
+and f.state <> 'CURRENT'
+
+union 
+
+select f.objid as faasid, f.tdno, i.objid as rpuid
+from faas f
+	inner join machrpu i on f.rpuid = i.objid 
+where i.landrpuid = $P{landrpuid}
+and f.state <> 'CURRENT'
+
+union 
+
+select f.objid as faasid, f.tdno, i.objid as rpuid
+from faas f
+	inner join planttreerpu i on f.rpuid = i.objid 
+where i.landrpuid = $P{landrpuid}
+and f.state <> 'CURRENT'
+
+union 
+
+select f.objid as faasid, f.tdno, i.objid as rpuid
+from faas f
+	inner join miscrpu i on f.rpuid = i.objid 
+where i.landrpuid = $P{landrpuid}
+and f.state <> 'CURRENT'
+
+
 [updateBldgRpuLandRpuId]  
 update r set 
-	r.landrpuid = $P{objid}
+	r.landrpuid = $P{newrpuid}
 from bldgrpu r, faas f
-where r.landrpuid = $P{objid}
+where r.landrpuid = $P{prevrpuid}
   and r.objid = f.rpuid 
   and f.state = 'CURRENT' 
 
 
 [updateMachRpuLandRpuId]  
 update r set 
-	r.landrpuid = $P{objid}
+	r.landrpuid = $P{newrpuid}
 from machrpu r, faas f
-where r.landrpuid = $P{objid}
+where r.landrpuid = $P{prevrpuid}
   and r.objid = f.rpuid 
   and f.state = 'CURRENT' 
 
 
 [updatePlantTreeRpuLandRpuId]  
 update r set 
-	r.landrpuid = $P{objid}
+	r.landrpuid = $P{newrpuid}
 from planttreerpu r, faas f
-where r.landrpuid = $P{objid}
+where r.landrpuid = $P{prevrpuid}
   and r.objid = f.rpuid 
   and f.state = 'CURRENT' 
 
 
 [updateMiscRpuLandRpuId]  
 update r set 
-	r.landrpuid = $P{objid}
+	r.landrpuid = $P{newrpuid}
 from miscrpu r, faas f
-where r.landrpuid = $P{objid}
+where r.landrpuid = $P{prevrpuid}
   and r.objid = f.rpuid 
   and f.state = 'CURRENT' 
 

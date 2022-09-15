@@ -14,14 +14,117 @@ from txnlog
 order by ref 
 
 
-[getList]
+[getList] 
 select 
-	x.username,
-	x.ref,
-	x.action, 
-	sum(x.cnt) as cnt 
-from vw_txn_log x
-where x.txndate >= $P{startdate} and txndate < $P{enddate}
-${filter}
-group by x.username, x.ref, x.action
-order by x.username, x.ref, x.action
+  xx.username,
+	xx.ref,
+	xx.action, 
+	sum(xx.cnt) as cnt 
+from (
+	select 
+		x.*
+	from (
+			select  
+				`u`.`objid` AS `userid`,
+				`u`.`name` AS `username`,
+				`t`.`txndate` AS `txndate`,
+				`t`.`ref` AS `ref`,
+				`t`.`action` AS `action`,
+					1 AS `cnt` 
+			from  `txnlog` `t` join `sys_user` `u` on  `t`.`userid` = `u`.`objid`    
+			where t.userid = $P{userid} 
+			and t.txndate >= $P{startdate} and t.txndate < $P{enddate}
+
+			union 
+			
+			select 
+				`u`.`objid` AS `userid`,
+				`u`.`name` AS `username`,
+				`t`.`enddate` AS `txndate`,'faas' AS `ref`, 
+				case 
+				when  `t`.`state` like '%receiver%'  then 'receive' 
+				when  `t`.`state` like '%examiner%'  then 'examine' 
+				when  `t`.`state` like '%taxmapper_chief%'  then 'approve taxmap' 
+				when  `t`.`state` like '%taxmapper%'  then 'taxmap' 
+				when  `t`.`state` like '%appraiser%'  then 'appraise' 
+				when  `t`.`state` like '%appraiser_chief%'  then 'approve appraisal' 
+				when  `t`.`state` like '%recommender%'  then 'recommend' 
+				when  `t`.`state` like '%approver%'  then 'approve' 
+				else `t`.`state` end  AS `action`,
+				1 AS `cnt` 
+			from  `faas_task` `t` join `sys_user` `u` on  `t`.`actor_objid` = `u`.`objid`    
+			where t.actor_objid = $P{userid} 
+			and t.enddate >= $P{startdate} and t.enddate < $P{enddate}
+			and  not  `t`.`state` like '%assign%'    
+			
+			union 
+			
+			select 
+				`u`.`objid` AS `userid`,
+				`u`.`name` AS `username`,
+				`t`.`enddate` AS `txndate`,'subdivision' AS `ref`, 
+				case 
+				when  `t`.`state` like '%receiver%'  then 'receive' 
+				when  `t`.`state` like '%examiner%'  then 'examine' 
+				when  `t`.`state` like '%taxmapper_chief%'  then 'approve taxmap' 
+				when  `t`.`state` like '%taxmapper%'  then 'taxmap' 
+				when  `t`.`state` like '%appraiser%'  then 'appraise' 
+				when  `t`.`state` like '%appraiser_chief%'  then 'approve appraisal' 
+				when  `t`.`state` like '%recommender%'  then 'recommend' 
+				when  `t`.`state` like '%approver%'  then 'approve' 
+				else `t`.`state` end  AS `action`,
+				1 AS `cnt` 
+			from  `subdivision_task` `t` join `sys_user` `u` on  `t`.`actor_objid` = `u`.`objid`    
+			where t.actor_objid = $P{userid} 
+			and t.enddate >= $P{startdate} and t.enddate < $P{enddate}
+			and not  `t`.`state` like '%assign%'    
+			
+			union 
+			
+			select 
+				`u`.`objid` AS `userid`,
+				`u`.`name` AS `username`,
+				`t`.`enddate` AS `txndate`,'consolidation' AS `ref`, 
+				case 
+				when  `t`.`state` like '%receiver%'  then 'receive' 
+				when  `t`.`state` like '%examiner%'  then 'examine' 
+				when  `t`.`state` like '%taxmapper_chief%'  then 'approve taxmap' 
+				when  `t`.`state` like '%taxmapper%'  then 'taxmap' 
+				when  `t`.`state` like '%appraiser%'  then 'appraise' 
+				when  `t`.`state` like '%appraiser_chief%'  then 'approve appraisal' 
+				when  `t`.`state` like '%recommender%'  then 'recommend' 
+				when  `t`.`state` like '%approver%'  then 'approve' 
+				else `t`.`state` end  AS `action`,
+				1 AS `cnt` 
+			from  `subdivision_task` `t` join `sys_user` `u` on  `t`.`actor_objid` = `u`.`objid`    
+			where t.actor_objid = $P{userid} 
+			and t.enddate >= $P{startdate} and t.enddate < $P{enddate}
+			and  not  `t`.`state` like '%consolidation%'    
+
+			union 
+			
+			select 
+				`u`.`objid` AS `userid`,
+				`u`.`name` AS `username`,
+				`t`.`enddate` AS `txndate`,'cancelledfaas' AS `ref`, 
+				case 
+				when  `t`.`state` like '%receiver%'  then 'receive' 
+				when  `t`.`state` like '%examiner%'  then 'examine' 
+				when  `t`.`state` like '%taxmapper_chief%'  then 'approve taxmap' 
+				when  `t`.`state` like '%taxmapper%'  then 'taxmap' 
+				when  `t`.`state` like '%appraiser%'  then 'appraise' 
+				when  `t`.`state` like '%appraiser_chief%'  then 'approve appraisal' 
+				when  `t`.`state` like '%recommender%'  then 'recommend' 
+				when  `t`.`state` like '%approver%'  then 'approve' 
+				else `t`.`state` end  AS `action`,
+				1 AS `cnt` 
+			from  `subdivision_task` `t` join `sys_user` `u` on  `t`.`actor_objid` = `u`.`objid`    
+			where t.actor_objid = $P{userid} 
+			and t.enddate >= $P{startdate} and t.enddate < $P{enddate}
+			and not  `t`.`state` like '%cancelledfaas%'   
+		)x
+		where 1=1 
+		${filter}
+	)xx
+group by xx.username, xx.ref, xx.action
+order by xx.username, xx.ref, xx.action

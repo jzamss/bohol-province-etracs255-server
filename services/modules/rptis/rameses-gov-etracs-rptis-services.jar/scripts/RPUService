@@ -28,8 +28,11 @@ class RPUService
     @Service('Var')
     def var
 
-    @DataContext('faas')
+    @DataContext('faas_list')
     def em_faas 
+
+    @DataContext('rpu')
+    def em_rpu
 
     @DataContext('rpu_type_suffix')
     def em_rpu_type_suffix
@@ -114,6 +117,7 @@ class RPUService
     @ProxyMethod
     public def createRpu(rpu) {
         validateInfo(rpu)
+        updateLandRpuId(rpu)
         createRpuMaster(rpu)
         if (!rpu.state )
             rpu.state = STATE_INTERIM
@@ -198,6 +202,17 @@ class RPUService
     @ProxyMethod
     public List getRpuTypes(  ) {
         return [RPUTYPE_LAND, RPUTYPE_BLDG, RPUTYPE_MACH, RPUTYPE_PLANTTREE, RPUTYPE_MISC]
+    }
+
+    @ProxyMethod
+    public List getRpuTypeList(  ) {
+        return [
+            [type: RPUTYPE_LAND, caption: 'Land'],
+            [type: RPUTYPE_BLDG, caption: 'Building'], 
+            [type: RPUTYPE_MACH, caption: 'Machinery'], 
+            [type: RPUTYPE_PLANTTREE, caption: 'Plant/Tree'], 
+            [type: RPUTYPE_MISC, caption: 'Miscellaneous'],
+        ]
     }
 
     @ProxyMethod 
@@ -312,7 +327,10 @@ class RPUService
 
     void deleteRpuMaster(rpu){
         try{
-            em.deleteRpuMaster([objid:rpu.rpumasterid])
+            def master = em.findRpuMasterById([objid: rpu.rpumasterid])
+            if (master) {
+                em.deleteRpuMaster(master)
+            }
         }
         catch(e){
             e.printStackTrace()
@@ -395,4 +413,11 @@ class RPUService
     }
 
 
+    void updateLandRpuId(rpu) {
+        if (rpu.rputype == 'land') return
+
+        def currentland = em_rpu.select('objid').find([previd: rpu.landrpuid]).first()
+        if (!currentland) return;
+        rpu.landrpuid = currentland.objid
+    }
 }

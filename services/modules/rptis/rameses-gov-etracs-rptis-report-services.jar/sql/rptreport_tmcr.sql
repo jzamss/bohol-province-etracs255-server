@@ -1,7 +1,7 @@
 [findCurrentRy]
 select ry from landrysetting order by ry desc 
 
-[getTmcrList]
+[getTmcrSimplified]
 SELECT
 	b.name AS barangay, pc.code AS classcode, 
 	f.state,  f.memoranda, f.owner_name, f.owner_address, 
@@ -77,7 +77,7 @@ ORDER BY f.tdno DESC
 
 
 
-[getTMCRModifiedData]
+[getTMCRData]
 select 
 	f.objid, 
 	f.state,

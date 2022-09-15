@@ -52,6 +52,9 @@ class RPTReceiptService
 	@DataContext('rptpayment_share')
 	def em_rptpayment_share
 
+	@DataContext('rptbill')
+	def em_rptbill
+
 	@DataContext('rptbill_ledger')
 	def em_rptbill_ledger
 
@@ -109,12 +112,16 @@ class RPTReceiptService
 
 
 	@ProxyMethod
-	public def loadBarcode(barcode){
-		if (!barcode.barcodeid) {
+	public def loadBarcode(param){
+		if (param.billid) {
+			def bill = em_rptbill.select('barcode').find([objid: param.billid]).first()
+			if (bill) param.barcodeid = bill.barcode
+		}
+		if (!param.barcodeid) {
 			throw new Exception('barcodeid must be specified.')
 		}
-		
-		def bill = billSvc.getBillByBarcode(barcode)
+
+		def bill = billSvc.getBillByBarcode(param)
 
 		def entity = [:]
 		entity.formtype = 'serial'
@@ -264,7 +271,7 @@ class RPTReceiptService
 		def priorities = postingitems.priority.unique().sort()
 		def yrs = postingitems.year.unique().sort();
 
-		def toqtr = 4
+		def toqtr = null;
 
 		for (int idx = 0; idx < yrs.size(); idx++){
 			if (partialamt <= 0) break;
@@ -301,7 +308,7 @@ class RPTReceiptService
 		rptledger.shares = billSvc.getShares(bill)
 		def lastitem = rptledger.postingitems.last()
 		rptledger.toyear = lastitem.year 
-		rptledger.toqtr = toqtr 
+		rptledger.toqtr = toqtr == null ?  lastitem.qtr : toqtr
 		rptledger.partialled = rptledger.postingitems.find{it.partialled == true} != null 
 		rptledger.total = rptledger.postingitems.total.sum()
 
@@ -321,6 +328,8 @@ class RPTReceiptService
 	@ProxyMethod
 	public def formatReceiptForPrinting(receipt){
 		receipt._items = em.getItemsForPrinting(receipt)
+		receipt.totalbasic = receipt._items.basicnet.sum();
+		receipt.totalsef = receipt._items.sefnet.sum();
 		receipt.owners = receipt._items.owner?.name.unique().join(";")
 		util.buildPeriodCovered(receipt._items)
 		receipt.itemcount = receipt._items.size()
@@ -415,6 +424,7 @@ class RPTReceiptService
 			updateLedgerPaidYearQtr(ledger)
 			unrestrictProperty(receipt, ledger)
 			createForPostingShareEntry(receipt, ledger)
+			postMainLedgerPayment(receipt, ledger)
 		}
 	}
 
@@ -444,29 +454,47 @@ class RPTReceiptService
 		}
 	}
 
+    def createpaymentInfo(receipt, ledger) {
+        def pmt = [:]
+        pmt.objid = 'RPMT' + new java.rmi.server.UID()
+        pmt.rptledger = ledger
+        pmt.type = 'online'
+        pmt.refid = ledger.objid 
+        pmt.reftype = 'rptledger'
+        pmt.receiptid = receipt.objid 
+        pmt.receiptno = receipt.receiptno 
+        pmt.receiptdate = receipt.receiptdate 
+        pmt.paidby = [name:receipt.paidby, address: receipt.paidbyaddress]
+        pmt.postedby = receipt.collector.name 
+        pmt.postedbytitle = receipt.collector.title 
+        pmt.dtposted = receipt.txndate 
+        pmt.fromyear = ledger.fromyear 
+        pmt.fromqtr = ledger.fromqtr ? ledger.fromqtr : 1 
+        pmt.toyear = ledger.toyear 
+        pmt.toqtr = ledger.toqtr ? ledger.toqtr : 4 
+        pmt.amount = ledger.total 
+        pmt.collectingagency = getCollectingAgency()
+        pmt.voided = false 
+        return pmt
+    }
+
 	def createLedgerPayment(receipt, ledger){
-		def pmt = [:]
-			pmt.objid = 'RPMT' + new java.rmi.server.UID()
-			pmt.rptledger = ledger
-			pmt.type = 'online'
-			pmt.refid = ledger.objid 
-			pmt.reftype = 'rptledger'
-			pmt.receiptid = receipt.objid 
-			pmt.receiptno = receipt.receiptno 
-			pmt.receiptdate = receipt.receiptdate 
-			pmt.paidby = [name:receipt.paidby, address: receipt.paidbyaddress]
-			pmt.postedby = receipt.collector.name 
-			pmt.postedbytitle = receipt.collector.title 
-			pmt.dtposted = receipt.txndate 
-			pmt.fromyear = ledger.fromyear 
-			pmt.fromqtr = ledger.fromqtr ? ledger.fromqtr : 1 
-			pmt.toyear = ledger.toyear 
-			pmt.toqtr = ledger.toqtr ? ledger.toqtr : 4 
-			pmt.amount = ledger.total 
-			pmt.collectingagency = getCollectingAgency()
-			pmt.voided = false 
-			em_rptpayment.create(pmt)
-			return pmt 
+        def pmt = createpaymentInfo(receipt, ledger)
+        em_rptpayment.create(pmt)
+        return pmt 
+	}
+
+	def createParentLedgerPayment(receipt, ledger, parentledger){
+        def pmt = createpaymentInfo(receipt, ledger)
+		 pmt.rptledger = parentledger
+        pmt.refid = parentledger.objid 
+        pmt.receiptid = null
+        pmt.fromyear = parentledger.fromyear 
+        pmt.fromqtr = parentledger.fromqtr ? parentledger.fromqtr : 1 
+        pmt.toyear = parentledger.toyear 
+        pmt.toqtr = parentledger.toqtr ? parentledger.toqtr : 4 
+        em_rptpayment.create(pmt)
+        return pmt 
 	}
 
 	void postPaidItems(ledgerpmt, postingitems){
@@ -559,5 +587,41 @@ class RPTReceiptService
 			em_faas_restriction.update(it)
 		}
 	}
+
+	void postMainLedgerPayment(receipt, ledger) {
+		if (! ledgerSvc.isSubLedger(ledger)) return
+        def parentledger = ledgerSvc.getParentLedger(ledger)
+        if (!parentledger) return
+
+        def bill = billSvc.initBill()
+        bill.taxpayer = parentledger.taxpayer
+        bill.ledgers = [parentledger]
+        bill._forpayment = true
+        bill = billSvc.generateBill(bill)
+        bill.partial = [amount: ledger.total]
+        bill.rptledger = bill.ledgers[0]
+        parentledger = applyPartialPayment(bill)
+        def ledgerpmt = createParentLedgerPayment(receipt, ledger, parentledger)
+        postPaidItems(ledgerpmt, parentledger.postingitems)
+        updateParentLedgerPaidYearQtr(parentledger)
+	}
+
+    void updateParentLedgerPaidYearQtr(ledger){
+		def info = [objid: ledger.objid]
+		if (ledger.partialled){
+			info.lastyearpaid = (ledger.toqtr == 1 ? ledger.toyear - 1 : ledger.toyear)
+			info.lastqtrpaid = (ledger.toqtr == 1 ? 4 : ledger.toqtr - 1)
+		}
+		else {
+			info.lastyearpaid = ledger.toyear 
+			info.lastqtrpaid = ledger.toqtr 
+		}
+		em_rptledger.where('objid = :objid and lastyearpaid <= :lastyearpaid', info).update(info)
+		if (info.lastqtrpaid == 4) {
+			em_rptledger_item.find([parentid: info.objid, year: info.lastyearpaid]).delete();
+		}
+	}
+
+
 }
 

@@ -242,7 +242,7 @@ class FAASSyncDataService
 			faas = faasSvc.openFaas(faas)
 			def ledger = em_ledger.find([faasid: faas.objid]).first()
 			if (ledger) {
-				ledgerSvc.deleteLedger(ledger)
+				em_ledger.find([objid: ledger.objid]).update([faasid: null])
 			}
 			faas.allowdelete = true
 			faasSvc.deleteRevertedFaas(faas)
@@ -340,11 +340,17 @@ class FAASSyncDataService
 			faasSvc.updateFaas(remoteFaas)
 			faasSvc.approveFaas(faas)
 			postLedger(faas)
-			saveTasks(remoteFaas)
-			faasSvc.updateSignatoryInfo(remoteFaas.tasks.find{it.state == 'approver'})
-			notifyRecommender(remoteFaas)
-			rptsmsSvc.notifyClient(remoteFaas)
+			updateSignatory(remoteFaas)
+		} else {
+			updateSignatory(remoteFaas)
 		}
+	}
+
+	void updateSignatory(remoteFaas) {
+		saveTasks(remoteFaas)
+		faasSvc.updateSignatoryInfo(remoteFaas.tasks.find{it.state == 'approver'})
+		notifyRecommender(remoteFaas)
+		rptsmsSvc.notifyClient(remoteFaas)
 	}
 
 	def postFaasForApproval = {syncdata ->

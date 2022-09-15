@@ -4,6 +4,7 @@
 		<field name="state" required="true" caption="State" searchable="true" indexed="true"/>
 		<field name="txnno"  caption="Txn No." searchable="true" indexed="true"/>
 		<field name="txndate"  caption="Txn Date" searchable="true" indexed="true" type="date"/>
+		<field name="cutoffdate"  caption="Cutoff Date" type="date"/>
 		<field name="faasid" />
 		<field name="rptledgerid" required="true" />
 		<field name="lastyearpaid" type="integer" required="true"  caption="Last Year Paid" />

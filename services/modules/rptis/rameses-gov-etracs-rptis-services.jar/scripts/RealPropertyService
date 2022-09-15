@@ -109,7 +109,7 @@ class RealPropertyService
 
 	@ProxyMethod
     public def getRyList(  ) {
-    	return em_landsetting.where('1=1').list().ry 
+    	return em_landsetting.where('1=1').orderBy('ry desc').list().ry 
     }
 
 	@ProxyMethod

@@ -21,6 +21,7 @@
 		<field name="remarks"  caption="Remarks"/>
 		<field name="deliverydays" expr="30"  caption="Delivery Days" type="integer" />
 		<field name="deliverytype_objid" caption="Delivery Type" />
+		<complex name="info" required="false" serializer="default" />
 	</element>
 
 	<element name="item" tablename="assessmentnoticeitem">

@@ -10,6 +10,7 @@ public class MiscItem{
     Double marketvalue
     Double assesslevel
     Double assessedvalue
+    Boolean taxable
 
     //data reference
     def miscrpu 
@@ -21,6 +22,7 @@ public class MiscItem{
         this.miscrpu = miscrpu
         this.entity  = miscitem 
         this.depreciation = miscitem.depreciation 
+        this.taxable = miscitem.taxable
         
         setBasemarketvalue(miscitem.basemarketvalue)
         setDepreciatedvalue(miscitem.depreciatedvalue)

@@ -18,6 +18,7 @@ SELECT
 	rp.barangayid,
 	rp.lgutype,
 	rp.stewardshipno,
+	rp.portionof,
 	r.rputype,
 	r.ry,
 	r.suffix,
@@ -127,7 +128,9 @@ SELECT
 	SUM(ld.marketvalue) AS marketvalue,
 	SUM(ld.assessedvalue) AS assessedvalue,
 	SUM(ld.areasqm) AS areasqm,
-	SUM(ld.areaha) AS areaha 
+	SUM(ld.areaha) AS areaha,
+	sum(case when ld.taxable = '1' then ld.assessedvalue else 0 end) as ttaxable,
+	sum(case when ld.taxable = '0' then ld.assessedvalue else 0 end) as texempt  
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN landrpu lr ON r.objid = lr.objid
@@ -163,7 +166,19 @@ SELECT
 	SUM(ptd.marketvalue) AS marketvalue,
 	SUM(ptd.assessedvalue) AS assessedvalue,
 	SUM(0) AS areasqm,
-	SUM(0) AS areaha 
+	SUM(0) AS areaha,
+  SUM(
+    case
+      when ptd.assessedvalue = 'NULL' then ptd.assessedvalue 
+      else 0
+    end
+  ) as ttaxable,
+  SUM(
+    case
+      when ptd.assessedvalue = 'NULL' then ptd.assessedvalue 
+      else 0
+    end
+  ) as texempt
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	LEFT JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -222,7 +237,7 @@ WHERE f.objid = $P{faasid}
 
 
 [getBldgAssessments]
-SELECT 
+SELECT DISTINCT
 	'BLDG' as propertytype, 
 	dc.code AS dominantclasscode,
 	dc.name AS dominantclassification,
@@ -239,13 +254,19 @@ SELECT
 	r.areasqm AS areasqm,
 	r.areaha AS areaha,
 	r.taxable,
-	xr.rputype 
+	xr.rputype,
+	bldgtype.`name` as bldgname,
+	(case when r.taxable = '1' then r.assessedvalue else 0 end) as ttaxable,
+	(case when r.taxable = '0' then r.assessedvalue else 0 end) as texempt
 FROM faas f
 	INNER JOIN rpu_assessment r ON f.rpuid = r.rpuid
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
 	INNER JOIN bldgassesslevel bal ON r.actualuse_objid = bal.objid 
 	INNER JOIN rpu xr on f.rpuid = xr.objid 
 	INNER JOIN propertyclassification dc ON xr.classification_objid = dc.objid 
+	LEFT JOIN bldgrpu_structuraltype AS bs ON f.rpuid = bs.bldgrpuid
+	LEFT JOIN bldgkindbucc ON bldgkindbucc.objid = bs.bldgkindbucc_objid
+	LEFT JOIN bldgtype ON bs.bldgtype_objid = bldgtype.objid	
 WHERE f.objid = $P{faasid}	
 
 
@@ -277,7 +298,10 @@ SELECT
 	r.assessedvalue AS assessedvalue,
 	r.areasqm AS areasqm,
 	r.areaha AS areaha,
-	xr.rputype 
+	r.taxable,
+	xr.rputype,
+	(case when r.taxable = '1' then r.assessedvalue else 0 end) as ttaxable,
+	(case when r.taxable = '0' then r.assessedvalue else 0 end) as texempt
 FROM faas f
 	INNER JOIN rpu_assessment r ON f.rpuid = r.rpuid
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -305,7 +329,8 @@ SELECT
 	md.operationyear,
 	md.replacementcost,
 	md.brand,
-	md.model
+	md.model,
+	mu.taxable
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -330,8 +355,11 @@ SELECT
 	bra.marketvalue,
 	bra.assessedvalue,
 	r.totalareasqm AS area,
-	'SQM' AS areatyp,
-	r.rputype
+	'SQM' AS areatype,
+	r.rputype,
+	bra.taxable,
+	(case when r.taxable = '1' then r.assessedvalue else 0 end) as ttaxable,
+	(case when r.taxable = '0' then r.assessedvalue else 0 end) as texempt
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -365,7 +393,8 @@ SELECT
 	bra.assessedvalue,
 	r.totalareasqm AS area,
 	'SQM' AS areatype,
-	r.rputype 
+	r.rputype,
+	bra.taxable
 FROM faas f
 	INNER JOIN rpu r ON f.rpuid = r.objid 
 	INNER JOIN propertyclassification pc ON r.classification_objid = pc.objid 
@@ -378,6 +407,7 @@ WHERE f.objid = $P{faasid}
 select
 	f.tdno, f.owner_name, 
 	rp.cadastrallotno, 
+	rp.blockno, 
 	r.totalareasqm, r.totalareaha
  from rpu r
 	inner join faas f on r.objid = f.rpuid  
@@ -398,7 +428,7 @@ select
 		where f.objid = $P{faasid}
 	) x 
 where r.objid = x.landrpuid 
-  and f.state <> 'CANCELLED' 
+order by f.dtapproved desc
 
 
 

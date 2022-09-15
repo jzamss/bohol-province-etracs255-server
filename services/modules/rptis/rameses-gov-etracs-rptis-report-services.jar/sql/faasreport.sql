@@ -83,7 +83,9 @@ select
 	rp.south,
 	rp.east,
 	rp.west,
+	rp.portionof,
 	rp.barangayid,
+	rp.portionof,
 	b.objid as barangay_objid,
 	b.name as barangay_name, 
 	b.parentid as barangay_parentid
@@ -113,11 +115,13 @@ select
 	rp.cadastrallotno as landlotno,
 	rp.surveyno as landsurveyno,
 	rp.blockno as landblockno,
+	rp.portionof,
 	f.administrator_name as landadminname
  from rpu r 
 	inner join faas f on f.rpuid = r.objid 
 	inner join realproperty rp on f.realpropertyid = rp.objid
 where r.objid=$P{landrpuid}
+order by f.dtapproved desc
 
 
 [getSignatories]

@@ -11,11 +11,18 @@ class RPTReportFieldInspectionDataService
     @DataContext('faas_previous')
     def em_faas_previous 
 
+    @DataContext('bldgrpu')
+    def em_bldgrpu
+
+    @DataContext('rptledger')
+    def em_rptledger
+
 
     @Async
 	@ProxyMethod
 	public def getReportData( params )  {
 		params.barangayid = params.barangay?.objid
+        params.parcel = params.parcel ? params.parcel : '%'
 
 		params.orderby = ''
 		if (params.ordertype.id == 'pin') {
@@ -24,10 +31,17 @@ class RPTReportFieldInspectionDataService
 			params.orderby = 'ORDER BY t.owner_name, t.pin, t.suffix' 
 		}
 
-		def list = em.getFieldInspectionDataBuilding(params)
+        if ('ALPHALIST'.equalsIgnoreCase(params.reporttype.type)) {
+            params.orderby = 'ORDER BY t.owner_name, t.pin, t.suffix'
+            params.section = '%'
+            params.parcel = '%'
+        }
+
+		def list = em.getInspections(params)
 		if( ! list ) throw new Exception('Records not found.')
+
 		list.each{ rpu ->
-			def prevlist = em_faas_previous.find([faasid:rpu.faasid]).list()
+			def prevlist = em_faas_previous.find([faasid:rpu.faasid]).where('prevowner IS NOT NULL').list()
             if (prevlist){
                 rpu.prevowner = prevlist.prevowner.join(' / ')
             }
@@ -39,11 +53,13 @@ class RPTReportFieldInspectionDataService
 				rpu.parcel = rpu.parcel+''
 			}
 			else if (rpu.rputype == 'bldg'){
-				def cols = em.getBldgStrucutureInspectionInfo(rpu)
+				def cols = em.getBldgStrucutureInfo(rpu)
 				rpu.columns = cols.find{it.columns != null}?.columns
 				rpu.extwalls = cols.find{it.extwalls != null}?.extwalls
 				rpu.roofing = cols.find{it.roofing != null}?.roofing
 				rpu.parcel = 'B-' + rpu.parcel 
+				rpu.floorcount = em_bldgrpu.select('floorcount').find([objid: rpu.objid]).val()
+				rpu.lastyearpaid = em_rptledger.select('lastyearpaid').find([faasid: rpu.faasid, state: 'APPROVED']).val()
 			}
 		}
 

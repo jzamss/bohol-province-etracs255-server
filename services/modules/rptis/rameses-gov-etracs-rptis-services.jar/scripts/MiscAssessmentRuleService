@@ -104,7 +104,7 @@ public class MiscAssessmentRuleService
 
 		actions.addCommand( "add-derive-var", new AddDeriveVariable( request:request));
 
-		actions.addCommand( "add-assessment-info", new AddAssessmentInfo( request:request));
+		actions.addCommand( "add-assessment-info", new AddAssessmentInfo( request:request, NS:numSvc));
 		actions.addCommand( "recalc-rpuassessment", new CalcRPUAssessValue( request:request, NS:numSvc));
 		actions.addCommand( "recalc-rpu-totalav", new CalcTotalRPUAssessValue( request:request, NS:numSvc));
 		actions.addCommand( "add-derive-var", new AddDeriveVariable( request:request));

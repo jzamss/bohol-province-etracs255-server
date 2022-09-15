@@ -8,9 +8,21 @@ import com.rameses.rules.common.*;
 global RuleAction action;
 
 
-
-
 rule "initial-assess-level"
+	agenda-group "BEFORE-ASSESSLEVEL"
+	salience 500000
+	no-loop
+	when
+		RPU  : MiscRPU();
+		MiscItem  : MiscItem();
+	then	
+		Map map = new HashMap();
+		map.put("miscrpu", RPU);
+		map.put("miscitem", MiscItem);
+		action.execute( "calc-al", map, drools );
+end
+
+rule "initial-rpu-assess-level"
 	agenda-group "ASSESSLEVEL"
 	salience 500000
 	no-loop

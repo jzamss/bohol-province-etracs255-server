@@ -33,6 +33,8 @@ class RPTReportTxnLogService
     @Async
 	@ProxyMethod
 	public Map buildReport( params ) {
+		if (!params.user) throw new Exception('User must be specified')
+		
 		util.buildStartEndDateFilter(params)
 
 		params.filter = ''
@@ -43,7 +45,7 @@ class RPTReportTxnLogService
 		}
 
 		if (params.reftype) {
-			params.filter += ' and reftype = $P{reftype} '
+			params.filter += ' and ref = $P{reftype} '
 		}
 
 		def items = em.getList(params).each{ it.ref = it.ref.toLowerCase()}

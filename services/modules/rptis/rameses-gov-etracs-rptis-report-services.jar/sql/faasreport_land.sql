@@ -10,9 +10,11 @@ SELECT
 	sub.name AS subname, 
 	al.code AS actualusecode,
 	al.name AS actualusename,
+	st.striplevel,
 	ld.areasqm, 
 	ld.areaha,
 	ld.taxable, 
+	case when ld.taxable = '1' then 'T' else 'E' end as taxability,
 	CASE WHEN ld.areatype = 'HA' THEN ld.areaha ELSE ld.areasqm END AS area,
 	ld.unitvalue,
 	ld.basemarketvalue,
@@ -65,6 +67,7 @@ select
 	ld.basevalue,
 	ld.unitvalue,
 	ld.taxable,
+	case when ld.taxable = '1' then 'T' else 'E' end as taxability,
 	ld.basemarketvalue,
 	ld.adjustment,
 	ld.landvalueadjustment,
@@ -169,7 +172,12 @@ SELECT
 	x.actualusename,
 	x.assesslevel, 
 	x.assesslevelrate,
+	x.areasqm,
+	x.rputype,
 	x.taxable, 
+	case when x.taxable = '1' then x.assessedvalue else 0 end as ttaxable,
+	case when x.taxable = '0' then x.assessedvalue else 0 end as texempt,
+	case when x.taxable = '1' then 'T' else 'E' end as taxability,
 	sum(x.marketvalue) as marketvalue,
 	sum(x.assessedvalue) as assessedvalue
 FROM (
@@ -184,7 +192,12 @@ FROM (
 		ra.assesslevel / 100 AS assesslevel,
 		ra.assesslevel AS assesslevelrate,
 		ra.assessedvalue AS assessedvalue,
-		ra.taxable 
+		ra.areasqm as areasqm,
+		ra.rputype as rputype,
+		ra.taxable,
+		case when ra.taxable = '1' then ra.assessedvalue else 0 end as ttaxable,
+		case when ra.taxable = '0' then ra.assessedvalue else 0 end as texempt,
+		case when ra.taxable = '1' then 'T' else 'E' end as taxability
 	FROM rpu_assessment ra 
 		inner join rpu r on ra.rpuid = r.objid 
 		inner join propertyclassification dpc on r.classification_objid = dpc.objid 
@@ -205,7 +218,12 @@ FROM (
 		ra.assesslevel / 100 AS assesslevel,
 		ra.assesslevel AS assesslevelrate,
 		ra.assessedvalue AS assessedvalue,
-		ra.taxable
+		ra.areasqm as areasqm,
+		ra.rputype as rputype,
+		ra.taxable,
+		case when ra.taxable = '1' then ra.assessedvalue else 0 end as ttaxable,
+		case when ra.taxable = '0' then ra.assessedvalue else 0 end as texempt,
+		case when ra.taxable = '1' then 'T' else 'E' end as taxability
 	FROM rpu_assessment ra 
 		inner join rpu r on ra.rpuid = r.objid 
 		inner join propertyclassification dpc on r.classification_objid = dpc.objid 
@@ -220,9 +238,12 @@ group by
 	x.classname,
 	x.actualuse,
 	x.actualusename,
+	x.assessedvalue,
 	x.assesslevel, 
 	x.assesslevelrate,
-	x.taxable 
+	x.areasqm,
+	x.rputype,
+	x.taxable
 
 
 

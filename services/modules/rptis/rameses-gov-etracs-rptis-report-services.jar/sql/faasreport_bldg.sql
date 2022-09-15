@@ -145,7 +145,8 @@ SELECT
 	bra.marketvalue,
 	bra.assesslevel / 100 as assesslevel,
 	bra.assessedvalue AS assessedvalue,
-	bra.taxable
+	bra.taxable,
+	case when bra.taxable = '1' then 'T' else 'E' end as taxability
 FROM rpu_assessment bra 
 	INNER JOIN bldgassesslevel bal ON bra.actualuse_objid = bal.objid 
 WHERE bra.rpuid = $P{objid}	

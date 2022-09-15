@@ -83,6 +83,7 @@ class LandTaxBuildDelinquencyService
 	public def delete(entity){
 		def retval = [status:'ok']
 		try{
+			em_delinquency.deleteTaxpayerSummary()
 			em_delinquency.deleteErrors()
 			em_delinquency.deleteForProcess()
 			em_delinquency.deleteItems()
@@ -131,7 +132,7 @@ class LandTaxBuildDelinquencyService
 
 	@ProxyMethod
 	public def getLedgersForProcess( item ) {
-		return em_delinquency_forprocess.find([barangayid:item.barangayid]).list()
+		return em_delinquency_forprocess.find([barangayid:item.barangayid]).list(0,50)
 	}		
 
 	@ProxyMethod
@@ -159,7 +160,7 @@ class LandTaxBuildDelinquencyService
 				retval.errors = 1
 				rptledger.ignored = 0
 				em_delinquency_forprocess.find([objid:rptledger.objid]).delete()
-				em_delinquency_error.create(rptledger)
+				em_delinquency_error.save(rptledger)
 				em_delinquency_barangay.find([objid:bitem.objid]).update([errors:'{errors + 1}'])
 			}
 		}
@@ -222,6 +223,12 @@ class LandTaxBuildDelinquencyService
 								   .list()
 								   .each{ it.selected = false }
 	}
+
+	@ProxyMethod
+    public void buildSummaries(entity) {
+        em_delinquency.deleteTaxpayerSummary(entity)
+        em_delinquency.insertTaxpayerSummary(entity)
+    }
 
 
 
