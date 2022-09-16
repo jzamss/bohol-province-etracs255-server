@@ -1,8 +1,8 @@
 -- EPayment DB Template 2.5.01.02.06
 -- 
-create database eor;
+create database training_eor;
 
-use eor; 
+use training_eor; 
 
 SET FOREIGN_KEY_CHECKS=0;
 
